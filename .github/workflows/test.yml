@@ -1,0 +1,33 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Create virtual environment
+        shell: powershell
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        shell: powershell
+        run: .\.venv\Scripts\python.exe -m pip install --upgrade pip; .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
+
+      - name: Run unit tests
+        shell: powershell
+        run: .\.venv\Scripts\python.exe -m unittest discover -s tests -v

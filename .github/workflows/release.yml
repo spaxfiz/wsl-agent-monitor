@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Create virtual environment
+        shell: powershell
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        shell: powershell
+        run: .\.venv\Scripts\python.exe -m pip install --upgrade pip; .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
+
+      - name: Run tests
+        shell: powershell
+        run: .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+
+      - name: Build executable
+        shell: cmd
+        run: build_exe.bat
+
+      - name: Publish release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/WSLAgentMonitor.exe
+          generate_release_notes: true

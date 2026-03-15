@@ -1,5 +1,11 @@
 # WSL Agent Monitor
 
+[![Tests](https://github.com/spaxfiz/wsl-agent-monitor/actions/workflows/test.yml/badge.svg)](https://github.com/spaxfiz/wsl-agent-monitor/actions/workflows/test.yml)
+[![Build](https://github.com/spaxfiz/wsl-agent-monitor/actions/workflows/build.yml/badge.svg)](https://github.com/spaxfiz/wsl-agent-monitor/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/spaxfiz/wsl-agent-monitor)](https://github.com/spaxfiz/wsl-agent-monitor/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![中文文档](https://img.shields.io/badge/README-%E4%B8%AD%E6%96%87-blue.svg)](README.zh-CN.md)
+
 Did my agents dead?
 
 Probably not. But when `claude` and `codex` go suspiciously quiet inside WSL,
@@ -17,6 +23,8 @@ session files they are already writing.
 
 It is intentionally simple: a live process-viewer for agent sessions, not a
 workflow engine, terminal multiplexer, or accidental observability platform.
+
+For Chinese documentation, see [README.zh-CN.md](README.zh-CN.md).
 
 ## Why This Exists
 
@@ -129,6 +137,9 @@ python -m unittest discover -s tests -v
 The tests cover the thin entrypoint, key UI toggle behavior, and probe error
 handling.
 
+GitHub Actions also runs the same checks automatically on pushes and pull
+requests.
+
 ## Build
 
 Package the app into a single Windows binary:
@@ -142,6 +153,13 @@ Expected output:
 ```text
 dist\WSLAgentMonitor.exe
 ```
+
+The build workflow uploads the generated `.exe` as a GitHub Actions artifact,
+and tagged releases can publish it as a downloadable release asset.
+
+## Changelog
+
+Release history lives in [CHANGELOG.md](CHANGELOG.md).
 
 ## Limitations
 
