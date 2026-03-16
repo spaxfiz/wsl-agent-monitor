@@ -14,12 +14,14 @@ class AgentSession:
     summary_var: tk.StringVar
     detail_var: tk.StringVar
     source_var: tk.StringVar
+    usage_var: tk.StringVar
     detail_full_var: tk.StringVar
     source_full_var: tk.StringVar
     text_widget: scrolledtext.ScrolledText
     toggle_button: ttk.Button
     detail_toggle_button: ttk.Button
     source_toggle_button: ttk.Button
+    usage_label: ttk.Label
     detail_full_label: ttk.Label
     source_full_label: ttk.Label
     detail_insert_before: tk.Widget

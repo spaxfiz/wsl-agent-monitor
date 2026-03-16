@@ -37,8 +37,12 @@ jobs:
         shell: cmd
         run: build_exe.bat
 
+      - name: Package release zip
+        shell: powershell
+        run: Compress-Archive -Path dist/WSLAgentMonitor.exe -DestinationPath dist/WSLAgentMonitor-${{ github.ref_name }}-windows-x64.zip -Force
+
       - name: Publish release asset
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/WSLAgentMonitor.exe
+          files: dist/WSLAgentMonitor-${{ github.ref_name }}-windows-x64.zip
           generate_release_notes: true

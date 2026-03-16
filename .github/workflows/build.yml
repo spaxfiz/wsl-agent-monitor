@@ -36,8 +36,12 @@ jobs:
         shell: cmd
         run: build_exe.bat
 
+      - name: Package zip artifact
+        shell: powershell
+        run: Compress-Archive -Path dist/WSLAgentMonitor.exe -DestinationPath dist/WSLAgentMonitor-windows-x64.zip -Force
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: WSLAgentMonitor-windows
-          path: dist/WSLAgentMonitor.exe
+          path: dist/WSLAgentMonitor-windows-x64.zip

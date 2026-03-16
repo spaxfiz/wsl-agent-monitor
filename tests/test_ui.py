@@ -53,6 +53,33 @@ class FloatingMonitorUiTests(unittest.TestCase):
         children = [str(widget) for widget in session.source_full_label.master.winfo_children()]
         self.assertLess(children.index(str(session.source_full_label)), children.index(str(session.source_insert_before)))
 
+    def test_probe_target_toggle_updates_entry_state(self) -> None:
+        self.assertEqual("wsl", self.monitor.probe_target)
+        self.assertEqual("normal", str(self.monitor.distro_entry.cget("state")))
+
+        assert self.monitor.host_toggle_button is not None
+        self.monitor.host_toggle_button.invoke()
+        self.root.update_idletasks()
+
+        self.assertEqual("host", self.monitor.probe_target)
+        self.assertEqual("disabled", str(self.monitor.distro_entry.cget("state")))
+
+        assert self.monitor.wsl_toggle_button is not None
+        self.monitor.wsl_toggle_button.invoke()
+        self.root.update_idletasks()
+
+        self.assertEqual("wsl", self.monitor.probe_target)
+        self.assertEqual("normal", str(self.monitor.distro_entry.cget("state")))
+
+    def test_usage_footer_renders_below_output(self) -> None:
+        session = self.monitor.sessions["Claude"]
+        session.usage_var.set("Usage in 49k | out 106 | 1 sess")
+        self.root.update_idletasks()
+
+        self.assertEqual("pack", session.usage_label.winfo_manager())
+        self.assertEqual("Usage.TLabel", str(session.usage_label.cget("style")))
+        self.assertEqual("bottom", str(session.usage_label.pack_info()["side"]))
+
     def test_thin_entrypoint_exports_main(self) -> None:
         module = importlib.import_module("app")
         self.assertTrue(callable(module.main))

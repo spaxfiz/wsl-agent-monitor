@@ -43,6 +43,10 @@ class FloatingMonitor:
         self.dock_width = 1160
         self.dock_height = 760
         self.hover_deadline = 0.0
+        self.probe_target = "wsl"
+        self.host_toggle_button: ttk.Button | None = None
+        self.wsl_toggle_button: ttk.Button | None = None
+        self.distro_entry: tk.Entry | None = None
 
         self.distro_var = tk.StringVar(value="")
         self.distro_text = ""
@@ -88,7 +92,7 @@ class FloatingMonitor:
             pystray.MenuItem("Show / Hide", on_toggle, default=True),
             pystray.MenuItem("Exit", on_quit),
         )
-        self.tray_icon = pystray.Icon("wsl-agent-monitor", image, "WSL Agent Monitor", menu)
+        self.tray_icon = pystray.Icon("wsl-agent-monitor", image, "Agent Monitor", menu)
         self.tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
         self.tray_thread.start()
 
@@ -182,7 +186,7 @@ class FloatingMonitor:
         self.root.after(DOCK_POLL_MS, self._dock_tick)
 
     def _configure_window(self) -> None:
-        self.root.title("WSL Agent Monitor")
+        self.root.title("Agent Monitor")
         self.root.geometry("1160x760+80+80")
         self.root.minsize(920, 560)
         self.root.configure(bg=WINDOW_BG)
@@ -198,6 +202,7 @@ class FloatingMonitor:
         style.configure("CardTitle.TLabel", background=PANEL_BG, foreground=TEXT_FG, font=("Microsoft YaHei UI", 12, "bold"))
         style.configure("Body.TLabel", background=PANEL_BG, foreground=MUTED_FG, font=("Microsoft YaHei UI", 9))
         style.configure("PanelValue.TLabel", background=PANEL_BG, foreground=TEXT_FG, font=("Consolas", 10))
+        style.configure("Usage.TLabel", background=TEXT_BG, foreground="#9EB1C7", font=("Microsoft YaHei UI", 8))
         style.configure("Panel.TCheckbutton", background=WINDOW_BG, foreground=TEXT_FG, font=("Microsoft YaHei UI", 9))
         style.map("Panel.TCheckbutton", background=[("active", WINDOW_BG)])
         style.configure("Accent.TButton", background=ACCENT, foreground="#08111F", borderwidth=0, padding=(10, 6), font=("Microsoft YaHei UI", 9, "bold"))
@@ -217,14 +222,14 @@ class FloatingMonitor:
         titlebar.bind("<ButtonPress-1>", self._start_drag)
         titlebar.bind("<B1-Motion>", self._do_drag)
 
-        title = ttk.Label(titlebar, text="WSL Agent Monitor", style="Title.TLabel")
+        title = ttk.Label(titlebar, text="Agent Monitor", style="Title.TLabel")
         title.pack(side="left", padx=(12, 10), pady=8)
         title.bind("<ButtonPress-1>", self._start_drag)
         title.bind("<B1-Motion>", self._do_drag)
 
         subtitle = ttk.Label(
             titlebar,
-            text="Watches live Claude and Codex session files inside WSL. No log files are written.",
+            text="Watches live Claude and Codex session files on host or inside WSL. No log files are written.",
             style="Hint.TLabel",
         )
         subtitle.pack(side="left", pady=10)
@@ -242,7 +247,7 @@ class FloatingMonitor:
         distro_label = ttk.Label(controls, text="WSL distro", style="Hint.TLabel")
         distro_label.grid(row=0, column=0, sticky="w", padx=(0, 6))
 
-        distro_entry = tk.Entry(
+        self.distro_entry = tk.Entry(
             controls,
             textvariable=self.distro_var,
             bg="#11243B",
@@ -251,24 +256,37 @@ class FloatingMonitor:
             relief="flat",
             font=("Consolas", 10),
             width=18,
+            disabledbackground="#0C1828",
+            disabledforeground=MUTED_FG,
         )
-        distro_entry.grid(row=1, column=0, sticky="we", padx=(0, 12))
+        self.distro_entry.grid(row=1, column=0, sticky="we", padx=(0, 12))
+
+        source_label = ttk.Label(controls, text="Source", style="Hint.TLabel")
+        source_label.grid(row=0, column=1, sticky="w", padx=(0, 6))
+
+        source_buttons = tk.Frame(controls, bg=WINDOW_BG)
+        source_buttons.grid(row=1, column=1, sticky="w", padx=(0, 12))
+
+        self.host_toggle_button = ttk.Button(source_buttons, text="Host", style="Ghost.TButton", command=lambda: self._set_probe_target("host"))
+        self.host_toggle_button.pack(side="left", padx=(0, 6))
+        self.wsl_toggle_button = ttk.Button(source_buttons, text="WSL", style="Accent.TButton", command=lambda: self._set_probe_target("wsl"))
+        self.wsl_toggle_button.pack(side="left")
 
         actions = tk.Frame(controls, bg=WINDOW_BG)
-        actions.grid(row=1, column=1, sticky="w")
+        actions.grid(row=1, column=2, sticky="w")
 
         self.all_toggle_button = ttk.Button(actions, text="Watch all", style="Accent.TButton", command=self.toggle_all)
         self.all_toggle_button.pack(side="left", padx=(0, 8))
         ttk.Button(actions, text="Clear view", style="Ghost.TButton", command=self.clear_all).pack(side="left")
 
         pin_toggle = ttk.Checkbutton(controls, text="Always on top", variable=self.pin_var, style="Panel.TCheckbutton", command=self._apply_topmost)
-        pin_toggle.grid(row=0, column=1, sticky="w", padx=(12, 0))
+        pin_toggle.grid(row=0, column=3, sticky="w", padx=(12, 0))
 
         dock_toggle = ttk.Checkbutton(controls, text="Edge dock", variable=self.dock_var, style="Panel.TCheckbutton", command=self._toggle_dock)
-        dock_toggle.grid(row=1, column=3, sticky="w", padx=(12, 0))
+        dock_toggle.grid(row=1, column=5, sticky="w", padx=(12, 0))
 
         opacity_label = ttk.Label(controls, text="Opacity", style="Hint.TLabel")
-        opacity_label.grid(row=0, column=2, sticky="w", padx=(12, 0))
+        opacity_label.grid(row=0, column=4, sticky="w", padx=(12, 0))
 
         opacity_scale = tk.Scale(
             controls,
@@ -285,13 +303,14 @@ class FloatingMonitor:
             highlightthickness=0,
             length=160,
         )
-        opacity_scale.grid(row=1, column=2, sticky="w", padx=(12, 0))
+        opacity_scale.grid(row=1, column=4, sticky="w", padx=(12, 0))
         controls.grid_columnconfigure(0, weight=1)
 
         body = tk.Frame(shell, bg="#102033")
         body.pack(fill="both", expand=True, padx=12, pady=(0, 12))
 
         self.cards_parent = body
+        self._sync_probe_target_buttons()
 
     def _clip_text(self, text: str, limit: int = 120) -> str:
         compact = " ".join(text.split())
@@ -346,6 +365,7 @@ class FloatingMonitor:
         summary_var = tk.StringVar(value="Waiting to watch")
         detail_var = tk.StringVar(value="No live sessions")
         source_var = tk.StringVar(value="No watched files")
+        usage_var = tk.StringVar(value="Usage unavailable")
         detail_full_var = tk.StringVar(value="")
         source_full_var = tk.StringVar(value="")
 
@@ -368,8 +388,14 @@ class FloatingMonitor:
         ttk.Label(card, textvariable=source_var, style="Body.TLabel", wraplength=480, justify="left").pack(anchor="w", fill="x", pady=(2, 0))
         source_full_label = ttk.Label(card, textvariable=source_full_var, style="Body.TLabel", wraplength=480, justify="left")
 
+        output_area = tk.Frame(card, bg=TEXT_BG, highlightthickness=0, bd=0)
+        output_area.pack(fill="both", expand=True, pady=(10, 0))
+
+        usage_label = ttk.Label(output_area, textvariable=usage_var, style="Usage.TLabel", wraplength=480, justify="left")
+        usage_label.pack(side="bottom", anchor="w", fill="x", padx=10, pady=(0, 8))
+
         output = scrolledtext.ScrolledText(
-            card,
+            output_area,
             wrap="word",
             bg=TEXT_BG,
             fg=TEXT_FG,
@@ -380,7 +406,7 @@ class FloatingMonitor:
             padx=10,
             pady=10,
         )
-        output.pack(fill="both", expand=True, pady=(10, 0))
+        output.pack(side="top", fill="both", expand=True)
         output.configure(state="disabled")
 
         self.sessions[name] = AgentSession(
@@ -390,19 +416,49 @@ class FloatingMonitor:
             summary_var=summary_var,
             detail_var=detail_var,
             source_var=source_var,
+            usage_var=usage_var,
             detail_full_var=detail_full_var,
             source_full_var=source_full_var,
             text_widget=output,
             toggle_button=toggle_btn,
             detail_toggle_button=detail_toggle_button,
             source_toggle_button=source_toggle_button,
+            usage_label=usage_label,
             detail_full_label=detail_full_label,
             source_full_label=source_full_label,
             detail_insert_before=source_header,
-            source_insert_before=output,
+            source_insert_before=output_area,
             offsets={},
             known_sessions={},
         )
+
+    def _probe_target_text(self) -> str:
+        return "WSL" if self.probe_target == "wsl" else "Host"
+
+    def _sync_probe_target_buttons(self) -> None:
+        if self.host_toggle_button is not None:
+            self.host_toggle_button.configure(style="Accent.TButton" if self.probe_target == "host" else "Ghost.TButton")
+        if self.wsl_toggle_button is not None:
+            self.wsl_toggle_button.configure(style="Accent.TButton" if self.probe_target == "wsl" else "Ghost.TButton")
+        if self.distro_entry is not None:
+            self.distro_entry.configure(state="normal" if self.probe_target == "wsl" else "disabled")
+
+    def _set_probe_target(self, probe_target: str) -> None:
+        if probe_target == self.probe_target:
+            return
+
+        self.probe_target = probe_target
+        self._sync_probe_target_buttons()
+        target_name = self._probe_target_text()
+        for agent_name, session in self.sessions.items():
+            session.offsets = {}
+            session.known_sessions = {}
+            session.last_notice = ""
+            session.usage_var.set("Usage unavailable")
+            if session.watching:
+                session.status_var.set("Switching")
+                session.summary_var.set(f"Switching to {target_name} monitoring...")
+                self._append_system(agent_name, f"Switched to {target_name} monitoring.\n")
 
     def _start_drag(self, event: tk.Event[tk.Misc]) -> None:
         self.drag_origin = (event.x_root, event.y_root)
@@ -477,7 +533,7 @@ class FloatingMonitor:
         session.known_sessions = {}
         session.status_var.set("Connecting")
         self._sync_toggle_button(agent_name)
-        self._append_system(agent_name, "Watching live WSL session files.\n")
+        self._append_system(agent_name, f"Watching live {self._probe_target_text()} session files.\n")
 
         watcher = threading.Thread(target=self._watch_agent, args=(agent_name,), daemon=True)
         session.watcher_thread = watcher
@@ -505,7 +561,7 @@ class FloatingMonitor:
 
         while not session.stop_event.is_set():
             try:
-                result = run_probe_once(agent_name, self.distro_text, offsets_state)
+                result = run_probe_once(agent_name, self.distro_text, offsets_state, self.probe_target)
             except Exception as exc:  # noqa: BLE001
                 result = {
                     "status": "error",
@@ -515,6 +571,7 @@ class FloatingMonitor:
                     "offsets": offsets_state,
                     "sessions": [],
                     "events": [],
+                    "usage_text": "Usage unavailable",
                 }
 
             offsets_state = dict(result.get("offsets") or offsets_state)
@@ -553,6 +610,7 @@ class FloatingMonitor:
             if isinstance(item, dict)
         ]
         sources = [str(item) for item in (result.get("sources") or []) if str(item).strip()]
+        usage_text = str(result.get("usage_text") or "Usage unavailable")
         session.offsets = dict(result.get("offsets") or {})
 
         if status == "watching":
@@ -586,6 +644,7 @@ class FloatingMonitor:
         session.detail_full_var.set(detail_full)
         session.source_var.set(source_preview)
         session.source_full_var.set(source_full)
+        session.usage_var.set(usage_text)
 
         previous_sessions = session.known_sessions or {}
         current_sessions = {item["id"]: item["name"] for item in sessions}
